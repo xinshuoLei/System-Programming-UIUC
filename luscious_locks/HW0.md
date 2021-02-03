@@ -87,6 +87,14 @@ In which our intrepid hero battles standard out, standard error, file descriptor
 
 ### Hello, World! (system call style)
 1. Write a program that uses `write()` to print out "Hi! My name is `<Your Name>`".
+```C
+#include <unistd.h>
+
+int main() {
+	write(1, "Hi! my name is Xinshuo Lei\n", 27);
+	return 0;
+}
+```
 ### Hello, Standard Error Stream!
 2. Write a function to print out a triangle of height `n` to standard error.
    - Your function should have the signature `void write_triangle(int n)` and should use `write()`.
@@ -96,13 +104,64 @@ In which our intrepid hero battles standard out, standard error, file descriptor
    **
    ***
    ```
+```C
+#include <unistd.h>
+
+void write_triangle(int n) {
+	int i;
+	int j;
+	for (i = 0; i < n; i++) {
+		for (j = 0; j <= i; j++) {
+			write(STDERR_FILENO, "*", 1);
+		}
+		write(STDERR_FILENO, "\n", 1);
+	}
+}
+
+int main() {
+	write_triangle(3);
+	return 0;
+}
+```
 ### Writing to files
 3. Take your program from "Hello, World!" modify it write to a file called `hello_world.txt`.
    - Make sure to to use correct flags and a correct mode for `open()` (`man 2 open` is your friend).
+```C
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+
+int main() {
+	mode_t mode = S_IRUSR | S_IWUSR;
+	int fildes = open("hello_world.txt", O_CREAT | O_TRUNC | O_RDWR, mode);
+	write(fildes, "Hi! my name is Xinshuo Lei\n", 27);
+	close(fildes);
+	return 0;
+}
+```
 ### Not everything is a system call
 4. Take your program from "Writing to files" and replace `write()` with `printf()`.
    - Make sure to print to the file instead of standard out!
+```C
+#include <unistd.h>
+#include <stdio.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+
+int main() {
+	mode_t mode = S_IRUSR | S_IWUSR;
+	close(1);
+	int fildes = open("hello_world.txt", O_CREAT | O_TRUNC | O_RDWR, mode);
+	printf("Hi! my name is Xinshuo Lei\n");
+	close(fildes);
+	return 0;
+}
+```
 5. What are some differences between `write()` and `printf()`?
+`write()` is a system call while `printf()` is a standard library call. `write()` cannot print out
+integer values. 
 
 ## Chapter 2
 
