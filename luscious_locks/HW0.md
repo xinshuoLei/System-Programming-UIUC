@@ -174,18 +174,18 @@ Sizing up C types and their limits, `int` and `char` arrays, and incrementing po
 At least 8 bits. Depends on the machine you are using.
 ```
 2. How many bytes are there in a `char`?
-'''
+```
 char is 1 byte.
-'''
+```
 3. How many bytes the following are on your machine?
    - `int`, `double`, `float`, `long`, and `long long`
-'''C
+```C
 int is 4 bytes. 
 double is 8 bytes.
 float is 4 bytes.
 long is 4 bytes.
 long long is 8 bytes.
-'''
+```
 ### Follow the int pointer
 4. On a machine with 8 byte integers:
 ```C
@@ -285,9 +285,9 @@ for "Hello" plus 1 char for the null character in the end.
 ### Lifetime of automatic variables
 
 5. What data structure manages the lifetime of automatic variables?
-'''
+```
 Stack.
-'''
+```
 
 ## Chapter 4
 
@@ -529,7 +529,8 @@ These are general tips for compiling and developing using a compiler and git. So
 ```
 2. You modify the Makefile to generate debug builds and type `make` again. Explain why this is insufficient to generate a new build.
 ```
-Becasue part of the pervious will be reused when typing make again. You need to type make clean before make to generate a new build. 
+Becasue part of the pervious build will be reused when typing make again. You need to type make clean 
+before make to generate a new build. 
 ```
 3. Are tabs or spaces used to indent the commands after the rule in a Makefile?
 ```
@@ -537,8 +538,8 @@ Tabs.
 ```
 4. What does `git commit` do? What's a `sha` in the context of git?
 ```
-git commit records the project's currently staged changes. sha stands for simple hashing algorithm. It is the checksum of all changes plus
-a header.
+git commit records the project's currently staged changes. sha stands for simple hashing algorithm. It is 
+the checksum of all changes plus a header.
 ```
 5. What does `git log` show you?
 ```
@@ -546,18 +547,18 @@ The history of everything happened to the repository.
 ```
 6. What does `git status` tell you and how would the contents of `.gitignore` change its output?
 ```
-git status shows the changes you made, what changes are staged, and which files are untracked. git status would ignore the untracked files
-in the contents of .gitignore.
+git status shows the changes you made, what changes are staged, and which files are untracked. git status
+would ignore the untracked files in the contents of .gitignore.
 ```
 7. What does `git push` do? Why is it not just sufficient to commit with `git commit -m 'fixed all bugs' `?
 ```
-git push upload contents in local repository to the remote repository. It is not sufficient to just commit because commit only records the
-changes but does not change the remote repository.
+git push upload contents in local repository to the remote repository. It is not sufficient to just commit 
+because commit only records the changes but does not change the remote repository.
 ```
 8. What does a non-fast-forward error `git push` reject mean? What is the most common way of dealing with this?
 ```
-This means some changes have been made to the remote repository, but these changes are not in your local repository. The most common way is 
-to do git fetch, git rebase before doing git push again.
+This means some changes have been made to the remote repository, but these changes are not in your local repository. 
+The most common way is to do git fetch, git rebase before doing git push again.
 ```
 ## Optional (Just for fun)
 - Convert your a song lyrics into System Programming and C code and share on Piazza.
