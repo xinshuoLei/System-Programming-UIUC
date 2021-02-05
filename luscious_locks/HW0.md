@@ -160,18 +160,32 @@ int main() {
 }
 ```
 5. What are some differences between `write()` and `printf()`?
-`write()` is a system call while `printf()` is a standard library call. `write()` cannot print out
-integer values. 
-
+```C
+write() is a system call. printf() is a standard library call. write() cannot print out
+integer values but printf() can. 
+```
 ## Chapter 2
 
 Sizing up C types and their limits, `int` and `char` arrays, and incrementing pointers
 
 ### Not all bytes are 8 bits?
 1. How many bits are there in a byte?
+```
+At least 8 bits. Depends on the machine you are using.
+```
 2. How many bytes are there in a `char`?
+'''
+char is 1 byte.
+'''
 3. How many bytes the following are on your machine?
    - `int`, `double`, `float`, `long`, and `long long`
+'''C
+int is 4 bytes. 
+double is 8 bytes.
+float is 4 bytes.
+long is 4 bytes.
+long long is 8 bytes.
+'''
 ### Follow the int pointer
 4. On a machine with 8 byte integers:
 ```C
@@ -180,9 +194,15 @@ int main(){
 } 
 ```
 If the address of data is `0x7fbd9d40`, then what is the address of `data+2`?
+'''
+Since integer is 8 bytes, the address of data+2 = 0x7fbd9d40 + 8 * 2 = 0x7fbd9d50.
+'''
 
 5. What is `data[3]` equivalent to in C?
    - Hint: what does C convert `data[3]` to before dereferencing the address?
+```
+It is equivalent to *(data + 3) and 3[data].
+```
 
 ### `sizeof` character arrays, incrementing pointers
   
@@ -193,20 +213,62 @@ Remember, the type of a string constant `"abc"` is an array.
 char *ptr = "hello";
 *ptr = 'J';
 ```
+```
+Because the memory of "hello" (a string) can only be read. Segfault appears since the program tries to 
+change constant memory.
+```
 7. What does `sizeof("Hello\0World")` return?
+```
+12.
+```
 8. What does `strlen("Hello\0World")` return?
+```
+5.
+```
 9. Give an example of X such that `sizeof(X)` is 3.
+```
+"Hi"
+```
 10. Give an example of Y such that `sizeof(Y)` might be 4 or 8 depending on the machine.
-
+```
+Y can be an integer like 10 or a pointer.
+```
 ## Chapter 3
 
 Program arguments, environment variables, and working with character arrays (strings)
 
 ### Program arguments, `argc`, `argv`
 1. What are two ways to find the length of `argv`?
+```C
+// The first way is using argc, which is the length of argv by definition. The second way is having a
+// counter that starts at 0, looping through every char in argv, incrementing the counter by 1 each time
+// until the char is the null character.
+
+#include <string.h>
+#include <unistd.h>
+#include <stdio.h>
+
+int main(int argc, char* argv[]) {
+	// the first way
+	printf("length of argv is : %d\n", argc);
+	// the second way
+	int count = 0;
+	while(argv[count] != '\0') {
+		count++;
+	}
+	printf("length of argv is : %d\n", count);
+	return 0;
+}
+```
 2. What does `argv[0]` represent?
+```
+The first argument, which is the execution name of the program.
+```
 ### Environment Variables
 3. Where are the pointers to environment variables stored (on the stack, the heap, somewhere else)?
+```
+It is stored somewhere else in memory. We need to use the extern keyword to have access to it.
+```
 ### String searching (strings are just char arrays)
 4. On a machine where pointers are 8 bytes, and with the following code:
 ```C
@@ -214,10 +276,18 @@ char *ptr = "Hello";
 char array[] = "Hello";
 ```
 What are the values of `sizeof(ptr)` and `sizeof(array)`? Why?
+```C
+The value of sizeof(ptr) is 8. sizeof(ptr) refers to the size of a char pointer, which is 8 bytes.
+The value of sizeof(array) is 6. sizeof(array) refers to the size of the char array, which is 5 chars
+for "Hello" plus 1 char for the null character in the end.  
+```
 
 ### Lifetime of automatic variables
 
 5. What data structure manages the lifetime of automatic variables?
+'''
+Stack.
+'''
 
 ## Chapter 4
 
@@ -225,30 +295,175 @@ Heap and stack memory, and working with structs
 
 ### Memory allocation using `malloc`, the heap, and time
 1. If I want to use data after the lifetime of the function it was created in ends, where should I put it? How do I put it there?
+```
+It should be put onto heap by using malloc.
+```
 2. What are the differences between heap and stack memory?
+```
+Stack memory is automatically freed after function returns. Variables stored on stack lives for the length of the function. 
+Heap memory is not automatically freed, it needs to be manully freed using free(). Varaibles stored on heap lives for the length 
+of the process until it is manully freed.
+```
 3. Are there other kinds of memory in a process?
+```
+Yes, such as text segment.
+```
 4. Fill in the blank: "In a good C program, for every malloc, there is a ___".
+```
+free
+```
 ### Heap allocation gotchas
 5. What is one reason `malloc` can fail?
+```
+There is no enough space on heap.
+```
 6. What are some differences between `time()` and `ctime()`?
+```
+time() is a system call that returns a time_t that has the value of the seconds since 1970.
+ctime() is a function in library. It returns a char*(string) that is the human-readable format time of its parameter 
+(a pointer to seconds).
+```
 7. What is wrong with this code snippet?
 ```C
 free(ptr);
 free(ptr);
+```
+```
+It double frees the same pointer.
 ```
 8. What is wrong with this code snippet?
 ```C
 free(ptr);
 printf("%s\n", ptr);
 ```
+```
+It uses memory that is already freed, which is not valid after anymore.
+```
 9. How can one avoid the previous two mistakes? 
+```
+Set a pointer to null after it is freed.
+```
 ### `struct`, `typedef`s, and a linked list
 10. Create a `struct` that represents a `Person`. Then make a `typedef`, so that `struct Person` can be replaced with a single word. A person should contain the following information: their name (a string), their age (an integer), and a list of their friends (stored as a pointer to an array of pointers to `Person`s).
+```C
+#include <stdio.h>
+#include <stdlib.h>
+
+struct Person {
+	char* name;
+	int age;
+	struct Person** friends;
+};
+
+typedef struct Person person_t;
+```
 11. Now, make two persons on the heap, "Agent Smith" and "Sonny Moore", who are 128 and 256 years old respectively and are friends with each other.
+```C
+#include <stdio.h>
+#include <stdlib.h>
+
+struct Person {
+	char* name;
+	int age;
+	struct Person** friends;
+};
+
+typedef struct Person person_t;
+
+int main() {
+	person_t* ptr1 = (person_t*) malloc(sizeof(person_t));
+	person_t* ptr2 = (person_t*) malloc(sizeof(person_t));
+	ptr1 -> name = "Agent Smith";
+	ptr1 -> age = 128;
+	ptr1 -> friends = &ptr2;
+	ptr2 -> name = "Sonny Moore";
+	ptr2 -> age = 256;
+	ptr2 -> friends = &ptr1;
+	free(ptr1);
+	ptr1 = NULL;
+	free(ptr2);
+	ptr2 = NULL;
+	return 0;
+}
+```
 ### Duplicating strings, memory allocation and deallocation of structures
 Create functions to create and destroy a Person (Person's and their names should live on the heap).
 12. `create()` should take a name and age. The name should be copied onto the heap. Use malloc to reserve sufficient memory for everyone having up to ten friends. Be sure initialize all fields (why?).
+```C
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+struct Person {
+	char* name;
+	int age;
+	struct Person** friends;
+};
+
+typedef struct Person person_t;
+
+person_t* create(char* name_, int age_) {
+	person_t* result = (person_t*) malloc(sizeof(person_t));
+	result -> name = strdup(name_);
+	result -> age = age_;
+	result -> friends = malloc(sizeof(person_t*) * 10);
+	int i;
+	for (i = 0; i < 10; i++) {
+		result -> friends[i] = NULL;
+	}
+	return result;
+}
+
+int main() {
+	return 0;
+}
+```
 13. `destroy()` should free up not only the memory of the person struct, but also free all of its attributes that are stored on the heap. Destroying one person should not destroy any others.
+```C
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+struct Person {
+	char* name;
+	int age;
+	struct Person** friends;
+};
+
+typedef struct Person person_t;
+
+person_t* create(char* name_, int age_) {
+	person_t* result = (person_t*) malloc(sizeof(person_t));
+	result -> name = strdup(name_);
+	result -> age = age_;
+	result -> friends = malloc(sizeof(person_t*) * 10);
+	int i;
+	for (i = 0; i < 10; i++) {
+		result -> friends[i] = NULL;
+	}
+	return result;
+}
+
+void destroy(person_t* ptr) {
+	free(ptr -> name);
+	ptr -> name = NULL;
+	free(ptr -> friends);
+	ptr -> friends = NULL;
+	memset(ptr, 0, sizeof(person_t));
+	free(ptr);
+	ptr = NULL;
+}
+
+int main() {
+	person_t* ptr1 = create("Agent Smith", 128);
+	person_t* ptr2 = create("Sonny Moore", 256);
+	ptr1 -> friends = &ptr2;
+	ptr2 -> friends = &ptr1;
+	destroy(ptr1);
+	destroy(ptr2);
+	return 0;
+}
+```
 
 ## Chapter 5 
 
@@ -256,26 +471,94 @@ Text input and output and parsing using `getchar`, `gets`, and `getline`.
 
 ### Reading characters, trouble with gets
 1. What functions can be used for getting characters from `stdin` and writing them to `stdout`?
+```C
+getchar() and putchar()
+```
 2. Name one issue with `gets()`.
+```
+gets() needs a buffer and can lead to buffer overflow. There is no way to tell if an input is too long
+for gets().
+```
 ### Introducing `sscanf` and friends
 3. Write code that parses the string "Hello 5 World" and initializes 3 variables to "Hello", 5, and "World".
+```C
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdarg.h>
+
+int main() {
+	char first[20];
+	int second;
+	char third[20];
+	sscanf("Hello 5 World", "%s %d %s", first, &second, third);
+	printf("Result: %s %d %s\n", first, second, third);
+	return 0;
+}
+```
 ### `getline` is useful
 4. What does one need to define before including `getline()`?
+```C
+#define _GNU_SOURCE
+```
 5. Write a C program to print out the content of a file line-by-line using `getline()`.
+```C
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdarg.h>
+
+int main() {
+	FILE* fp = fopen("test.txt", "r");
+	char* buffer = NULL;
+	size_t capacity = 0;
+	while(getline(&buffer, &capacity, fp) != -1) {
+		printf("%s", buffer);
+	}
+	fclose(fp);
+	free(buffer);
+	return EXIT_SUCCESS;
+}
+```
 
 ## C Development
 
 These are general tips for compiling and developing using a compiler and git. Some web searches will be useful here
 
 1. What compiler flag is used to generate a debug build?
+```
+-g
+```
 2. You modify the Makefile to generate debug builds and type `make` again. Explain why this is insufficient to generate a new build.
+```
+Becasue part of the pervious will be reused when typing make again. You need to type make clean before make to generate a new build. 
+```
 3. Are tabs or spaces used to indent the commands after the rule in a Makefile?
+```
+Tabs.
+```
 4. What does `git commit` do? What's a `sha` in the context of git?
+```
+git commit records the project's currently staged changes. sha stands for simple hashing algorithm. It is the checksum of all changes plus
+a header.
+```
 5. What does `git log` show you?
+```
+The history of everything happened to the repository.
+```
 6. What does `git status` tell you and how would the contents of `.gitignore` change its output?
+```
+git status shows the changes you made, what changes are staged, and which files are untracked. git status would ignore the untracked files
+in the contents of .gitignore.
+```
 7. What does `git push` do? Why is it not just sufficient to commit with `git commit -m 'fixed all bugs' `?
+```
+git push upload contents in local repository to the remote repository. It is not sufficient to just commit because commit only records the
+changes but does not change the remote repository.
+```
 8. What does a non-fast-forward error `git push` reject mean? What is the most common way of dealing with this?
-
+```
+This means some changes have been made to the remote repository, but these changes are not in your local repository. The most common way is 
+to do git fetch, git rebase before doing git push again.
+```
 ## Optional (Just for fun)
 - Convert your a song lyrics into System Programming and C code and share on Piazza.
 - Find, in your opinion, the best and worst C code on the web and post the link to Piazza.
