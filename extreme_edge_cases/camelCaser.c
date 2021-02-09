@@ -81,6 +81,9 @@ char **camel_caser(const char *input_str) {
                     cap = 0;
                 }
             }
+            if (!isalpha(c) && first_char) {
+                cap = 0;
+            }
             first_char = 0;
             result[j][char_count] = c;
             char_count++;
