@@ -132,6 +132,7 @@ void vector_destroy(vector *this) {
     while(this -> array[i]) {
         free(this -> array[i]);
         this -> array[i] = NULL;
+        i++;
     } 
     free(this -> array);
     this -> array = NULL;
