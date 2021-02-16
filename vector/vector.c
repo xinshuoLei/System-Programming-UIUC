@@ -128,11 +128,10 @@ vector *vector_create(copy_constructor_type copy_constructor,
 void vector_destroy(vector *this) {
     assert(this);
     // your code here
-    int i = 0;
-    while(this -> array[i]) {
+    size_t i = 0;
+    for(; i < this -> size; i++) {
         free(this -> array[i]);
         this -> array[i] = NULL;
-        i++;
     } 
     free(this -> array);
     this -> array = NULL;
@@ -194,6 +193,7 @@ void vector_reserve(vector *this, size_t n) {
     // your code here
     if (n > this -> capacity) {
         size_t new_capacity = get_new_capacity(n);
+        this -> capacity = new_capacity;
         this -> array = realloc(this -> array, new_capacity * sizeof(void*));
     }
 }
@@ -247,15 +247,17 @@ void vector_push_back(vector *this, void *element) {
 
 void vector_pop_back(vector *this) {
     assert(this);
-    if (this -> array[this -> size - 1]) {
-        this -> destructor(this -> array[this -> size - 1]);
-    }
-    this -> size = this -> size - 1;
     // your code here
+    if (this -> size == 0) {
+        return;
+    }
+    this -> destructor(this -> array[this -> size - 1]);
+    this -> size = this -> size - 1;
 }
 
 void vector_insert(vector *this, size_t position, void *element) {
     assert(this);
+    // your code here
     if (this -> size == this -> capacity) {
         size_t new_capacity = get_new_capacity(this -> capacity + 1);
         this -> capacity = new_capacity;
@@ -271,18 +273,32 @@ void vector_insert(vector *this, size_t position, void *element) {
         this -> array[position] = this -> copy_constructor(element);
         this -> size = this -> size + 1;
     }
-
-    // your code here
 }
 
 void vector_erase(vector *this, size_t position) {
     assert(this);
     assert(position < vector_size(this));
     // your code here
+    this -> destructor(this -> array[position]);
+    if (position != this -> size - 1) {
+        size_t i = position;
+        for(; i < this -> size - 1; i++) {
+            this -> array[i] = this -> array[i + 1];
+        }
+        this -> array[this -> size - 1] = NULL;
+    }
+    this -> size = this -> size - 1;
 }
 
 void vector_clear(vector *this) {
     // your code here
+    assert(this);
+    assert(this -> array);
+    size_t i = 0;
+    for (; i < this -> size; i++) {
+        this -> destructor(this -> array[i]);
+    }
+    this -> size = 0;
 }
 
 // The following is code generated:
