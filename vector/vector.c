@@ -4,6 +4,7 @@
  */
 #include "vector.h"
 #include <assert.h>
+#include <stdio.h>
 
 /**
  * 'INITIAL_CAPACITY' the initial size of the dynamically.
@@ -257,22 +258,19 @@ void vector_pop_back(vector *this) {
 
 void vector_insert(vector *this, size_t position, void *element) {
     assert(this);
+    assert(position <= this -> size);
     // your code here
     if (this -> size == this -> capacity) {
         size_t new_capacity = get_new_capacity(this -> capacity + 1);
         this -> capacity = new_capacity;
         this -> array = realloc(this -> array, new_capacity * sizeof(void*));
     }
-    if (position > (this -> size - 1)) {
-        vector_push_back(this, element);
-    } else {
-        size_t i = this -> size - 1;
-        for (; i >= position; i--) {
-            this -> array[i + 1] = this -> array[i];
-        }
-        this -> array[position] = this -> copy_constructor(element);
-        this -> size = this -> size + 1;
+    size_t i = this -> size - 1;
+    for (; i >= position; i--) {
+        this -> array[i + 1] = this -> array[i];
     }
+    this -> array[position] = this -> copy_constructor(element);
+    this -> size = this -> size + 1;
 }
 
 void vector_erase(vector *this, size_t position) {

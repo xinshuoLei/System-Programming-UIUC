@@ -59,10 +59,7 @@ vector *sstring_split(sstring *this, char delimiter) {
         }
         itr++;
     }
-    itr--;
-    if (*itr != delimiter) {
-        vector_push_back(v, start);
-    }
+    vector_push_back(v, start);
     return v;
 }
 
