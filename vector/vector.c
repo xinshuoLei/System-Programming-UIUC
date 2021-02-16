@@ -265,8 +265,8 @@ void vector_insert(vector *this, size_t position, void *element) {
         this -> capacity = new_capacity;
         this -> array = realloc(this -> array, new_capacity * sizeof(void*));
     }
-    long i = this -> size - 1;
-    for (; i >= (long) position; i--) {
+    long long i = this -> size - 1;
+    for (; i >= (long long)  position; i--) {
         this -> array[i + 1] = this -> array[i];
     }
     this -> array[position] = this -> copy_constructor(element);
