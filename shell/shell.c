@@ -252,7 +252,7 @@ int shell(int argc, char *argv[]) {
         exit(1);
     }
 
-    // signal(SIGINT, signal_handler);
+    signal(SIGINT, signal_handler);
     int pid = getpid();
     process* shell = create_process(pid, argv[0]);
     all_process = shallow_vector_create();
