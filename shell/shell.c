@@ -251,7 +251,7 @@ int execute(char* cmd) {
             }
         } else if (first_string[0] == '!') {
             // !<prefix>
-            if (size == 1) {
+            if (size >= 1) {
                 valid_command = 1;
                 char* prefix = first_string + 1;
                 for (size_t i = vector_size(all_history); i > 0; --i) {
@@ -368,7 +368,6 @@ int shell(int argc, char *argv[]) {
         print_usage();
         exit(1);
     }
-
     signal(SIGINT, signal_handler);
     int pid = getpid();
 
@@ -409,12 +408,26 @@ int shell(int argc, char *argv[]) {
     char* buffer = NULL;
     size_t length = 0;
     while (getline(&buffer, &length, input) != -1) {
-        if (strlen(buffer) > 0 && buffer[strlen(buffer) - 1] == '\n') {
-            buffer[strlen(buffer) -1] = '\0';
+        int status;
+        // waitpid((pid_t) -1, &status, WNOHANG);
+        size_t i = 0;
+        for (; i < vector_size(all_process); i++) {
+            process* p = vector_get(all_process, i);
+            waitpid(p -> pid, &status, WNOHANG); 
         }
-        char* copy = malloc(strlen(buffer));
-        strcpy(copy, buffer);
-        execute(copy);
+        
+        // deal with newline
+        if (strcmp(buffer, "\n") == 0) {
+           // do nothing
+        } else {
+            if (strlen(buffer) > 0 && buffer[strlen(buffer) - 1] == '\n') {
+                buffer[strlen(buffer) -1] = '\0';
+            }
+            char* copy = malloc(strlen(buffer));
+            strcpy(copy, buffer);
+            execute(copy);
+        }
+
         if (getcwd(cwd, 256) == NULL) {
             exit_shell(1);
         }
