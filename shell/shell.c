@@ -32,6 +32,11 @@ typedef struct process {
     pid_t pid;
 } process;
 
+int logic_and();
+int logic_or();
+int logic_separator();
+
+
 process* create_process(pid_t pid, char* comm) {
     process* ptr = malloc(sizeof(process));
     ptr -> pid = pid;
@@ -61,8 +66,100 @@ void exit_shell(int status) {
 }
 
 void ps() {
-    // mothing for now
+    // nothing for now
+    print_process_info_header();
+    size_t i = 0;
+    for (; i < vector_size(all_process); i++) {
+        process* p = vector_get(all_process, i);
+        // if process is running
+        if(kill(p -> pid,0) != -1){
+            process_info info;
+            info.command = p -> command;
+            info.pid = p -> pid;
+            
+            char path[100];
+            snprintf(path, sizeof(path), "/proc/%d/stat", p->pid);
+            FILE* fd = fopen(path, "r");
+            unsigned long long starttime = 0;
+            unsigned long time = 0;
+            unsigned long long btime = 0;
+            char time_str[20];
+
+            if (fd) {
+                char* buffer = NULL;
+                size_t len;
+                ssize_t bytes_read = getdelim( &buffer, &len, '\0', fd);
+                if ( bytes_read != -1) {
+                    sstring* s = cstr_to_sstring(buffer);
+                    // printf("%s\n", buffer);
+                    vector* nums = sstring_split(s, ' ');
+
+                    long int nthreads = 0;
+                    sscanf(vector_get(nums, 19), "%ld", &nthreads);
+                    info.nthreads = nthreads;
+                    
+                    unsigned long int vsize = 0;
+                    sscanf(vector_get(nums, 22), "%lu", &vsize);
+                    info.vsize = vsize / 1024;
+
+                    char state;
+                    sscanf(vector_get(nums, 2), "%c", &state);
+                    info.state = state;
+
+                    unsigned long utime = 0;
+                    unsigned long stime = 0;
+                    sscanf(vector_get(nums, 14), "%lu", &stime);
+                    sscanf(vector_get(nums, 13), "%lu", &utime);
+                    time = utime / sysconf(_SC_CLK_TCK) + stime / sysconf(_SC_CLK_TCK);
+                    unsigned long seconds = time % 60;
+                    unsigned long mins = (time - seconds) / 60;
+                    execution_time_to_string(time_str, 20, mins, seconds);
+                    info.time_str = time_str;
+                    
+                    sscanf(vector_get(nums, 21), "%llu", &starttime);
+
+                    vector_destroy(nums);
+                    sstring_destroy(s);
+                }
+            }
+            
+            
+            fclose(fd);
+
+
+            
+            FILE* fd2 = fopen("/proc/stat", "r");
+            if (fd2) {
+                char* buffer2 = NULL;
+                size_t len;
+                ssize_t bytes_read = getdelim( &buffer2, &len, '\0', fd2);
+                if ( bytes_read != -1) {
+                    sstring* s = cstr_to_sstring(buffer2);
+                    // printf("%s\n", buffer);
+                    vector* lines = sstring_split(s, '\n');
+                    size_t i = 0;
+                    for (; i < vector_size(lines); i++) {
+                        if (strncmp("btime", vector_get(lines, i), 5) == 0) {
+                            char str[10];
+                            sscanf(vector_get(lines, i), "%s %llu", str, &btime);
+                        }
+                    }
+                    vector_destroy(lines);
+                    sstring_destroy(s);
+                }
+            }
+            fclose(fd2);
+            
+            char start_str[20];
+            time_t start_time_final = btime + (starttime / sysconf(_SC_CLK_TCK));
+            time_struct_to_string(start_str, 20, localtime(&start_time_final));
+            info.start_str = start_str;
+            print_process_info(&info);  
+        }
+    }
 }
+
+
 
 size_t process_index(pid_t pid) {
     ssize_t index = -1;
@@ -170,7 +267,7 @@ int execute_external(char*cmd) {
             } else if (WIFSIGNALED(status)) {
 
             }
-            free(s);
+            sstring_destroy(s);
             vector_destroy(splited);
             return status;
         }
@@ -188,7 +285,7 @@ int execute_external(char*cmd) {
         print_exec_failed(cmd);
         exit(1);
     }
-    free(s);
+    sstring_destroy(s);
     vector_destroy(splited);
     return 1;
 }
@@ -197,10 +294,13 @@ int execute_external(char*cmd) {
 int execute(char* cmd) {
     if ((strstr(cmd, "&&")) != NULL) {
         // and
+        return logic_and(cmd);
     } else if ((strstr(cmd, "||")) != NULL) {
         // or
+        return logic_or(cmd);
     } else if ((strstr(cmd, ";")) != NULL) {
         // separator
+        return logic_separator(cmd);
     }
     
     sstring* s = cstr_to_sstring(cmd);
@@ -217,7 +317,7 @@ int execute(char* cmd) {
                 valid_command = 1;
                 vector_push_back(all_history, cmd);
                 int result = cd(vector_get(splited, 1));
-                free(s);
+                sstring_destroy(s);
                 vector_destroy(splited);
                 return result;
             }
@@ -228,7 +328,7 @@ int execute(char* cmd) {
                 for (size_t i = 0; i < vector_size(all_history); i++) {
                     print_history_line(i, vector_get(all_history, i));
                 }
-                free(s);
+                sstring_destroy(s);
                 vector_destroy(splited);
                 return 0;
             }
@@ -240,12 +340,12 @@ int execute(char* cmd) {
                 if (index < vector_size(all_history)) {
                     char* exec_cmd = vector_get(all_history, index);
                     print_command(exec_cmd);
-                    free(s);
+                    sstring_destroy(s);
                     vector_destroy(splited);
                     return execute(exec_cmd);
                 } 
                 print_invalid_index();
-                free(s);
+                sstring_destroy(s);
                 vector_destroy(splited);
                 return 1;
             }
@@ -258,13 +358,13 @@ int execute(char* cmd) {
                     char* another_cmd = vector_get(all_history, i - 1);
                     if (strncmp(another_cmd, prefix, strlen(prefix)) == 0) {
                         print_command(another_cmd);
-                        free(s);
+                        sstring_destroy(s);
                         vector_destroy(splited);
                         return execute(another_cmd);
                     }
                 }
                 print_no_history_match();
-                free(s);
+                sstring_destroy(s);
                 vector_destroy(splited);
                 return 1;
             }
@@ -273,6 +373,8 @@ int execute(char* cmd) {
             vector_push_back(all_history, cmd);
             if (size == 1) {
                 valid_command = 1;
+                ps();
+                return 0;
             }
         } else if (strcmp(first_string, "kill") == 0) {
             // kill
@@ -283,13 +385,13 @@ int execute(char* cmd) {
                 ssize_t index = process_index(target);
                 if (index == -1) {
                     print_no_process_found(target);
-                    free(s);
+                    sstring_destroy(s);
                     vector_destroy(splited);
                     return 1;
                 }
                 kill(target, SIGKILL);
                 print_killed_process(target, ((process*) vector_get(all_process, index)) -> command);
-                free(s);
+                sstring_destroy(s);
                 vector_destroy(splited);
                 return 0;
             }
@@ -302,13 +404,13 @@ int execute(char* cmd) {
                 ssize_t index = process_index(target);
                 if (index == -1) {
                     print_no_process_found(target);
-                    free(s);
+                    sstring_destroy(s);
                     vector_destroy(splited);
                     return 1;
                 }
                 kill(target, SIGSTOP);
                 print_stopped_process(target, ((process*) vector_get(all_process, index)) -> command);
-                free(s);
+                sstring_destroy(s);
                 vector_destroy(splited);
                 return 0;
             }
@@ -321,13 +423,13 @@ int execute(char* cmd) {
                 ssize_t index = process_index(target);
                 if (index == -1) {
                     print_no_process_found(target);
-                    free(s);
+                    sstring_destroy(s);
                     vector_destroy(splited);
                     return 1;
                 }
                 kill(target, SIGCONT);
                 print_continued_process(target, ((process*) vector_get(all_process, index)) -> command);
-                free(s);
+                sstring_destroy(s);
                 vector_destroy(splited);
                 return 0;
             }
@@ -341,7 +443,7 @@ int execute(char* cmd) {
             // external;
             vector_push_back(all_history, cmd);
             valid_command = 1;
-            free(s);
+            sstring_destroy(s);
             vector_destroy(splited);
             fflush(stdout);
             return execute_external(cmd);
@@ -352,11 +454,73 @@ int execute(char* cmd) {
     if (valid_command == 0) {
         print_invalid_command(cmd);
     }
-    free(s);
+    sstring_destroy(s);
     vector_destroy(splited);
     return 1;
 }
 
+// && operator
+int logic_and(char* cmd) {
+    // get first and second command
+    char* location = strstr(cmd, "&&");
+    size_t total_len = strlen(cmd);
+    size_t first_cmd_len = location - cmd;
+    size_t second_cmd_len = total_len - (first_cmd_len + 3);
+    char first_cmd [first_cmd_len];
+    char second_cmd [second_cmd_len + 1];
+    strncpy(first_cmd, cmd, first_cmd_len);
+    strncpy(second_cmd, (location + 3), second_cmd_len);
+    first_cmd[first_cmd_len - 1] = '\0';
+    second_cmd[second_cmd_len] = '\0';
+    // run
+    int first_status;
+    if ((first_status = execute(first_cmd)) == 0) {
+        return execute(second_cmd);
+    }
+
+    return 1;
+}
+
+// || operator
+int logic_or(char* cmd) {
+    // get first and second command
+    char* location = strstr(cmd, "||");
+    size_t total_len = strlen(cmd);
+    size_t first_cmd_len = location - cmd;
+    size_t second_cmd_len = total_len - (first_cmd_len + 3);
+    char first_cmd [first_cmd_len];
+    char second_cmd [second_cmd_len + 1];
+    strncpy(first_cmd, cmd, first_cmd_len);
+    strncpy(second_cmd, (location + 3), second_cmd_len);
+    first_cmd[first_cmd_len - 1] = '\0';
+    second_cmd[second_cmd_len] = '\0';
+    // run
+    int first_status;
+    if ((first_status = execute(first_cmd)) != 0) {
+        return execute(second_cmd);
+    }
+    return 0;
+}
+
+// ; operator
+int logic_separator(char* cmd) {
+    // get first and second command
+    char* location = strstr(cmd, ";");
+    size_t total_len = strlen(cmd);
+    size_t first_cmd_len = location - cmd;
+    size_t second_cmd_len = total_len - (first_cmd_len + 2);
+    char first_cmd [first_cmd_len + 1];
+    char second_cmd [second_cmd_len + 1];
+    strncpy(first_cmd, cmd, first_cmd_len);
+    strncpy(second_cmd, (location + 2), second_cmd_len);
+    first_cmd[first_cmd_len] = '\0';
+    second_cmd[second_cmd_len] = '\0';
+    
+    int result1 = execute(first_cmd);
+    int result2 = execute(second_cmd);
+
+    return result1 && result2;
+}
 
 
 int shell(int argc, char *argv[]) {
@@ -398,6 +562,7 @@ int shell(int argc, char *argv[]) {
                 print_script_file_error();
                 exit_shell(1);
             }
+            input = script;
         } else {
             print_usage();
             exit_shell(1);
