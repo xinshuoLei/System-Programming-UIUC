@@ -25,6 +25,7 @@ static vector* all_process;
 static vector* all_history;
 static char* history_file = NULL;
 static FILE* input = NULL;
+static int redirect = 0;
 
 
 typedef struct process {
@@ -32,9 +33,11 @@ typedef struct process {
     pid_t pid;
 } process;
 
-int logic_and();
-int logic_or();
-int logic_separator();
+int logic_and(char* cmd);
+int logic_or(char* cmd);
+int logic_separator(char* cmd);
+int redirect_output(char* cmd);
+int redirect_append(char* cmd);
 
 
 process* create_process(pid_t pid, char* comm) {
@@ -250,7 +253,9 @@ int execute_external(char*cmd) {
     }
 
     if (pid > 0) {
-        print_command_executed(pid);
+        if (!redirect) {
+            print_command_executed(pid);
+        }
         int status = 0;
         if (background) {
             waitpid(pid, &status, WNOHANG);
@@ -261,7 +266,8 @@ int execute_external(char*cmd) {
             } else if (WIFEXITED(status)) {
                 if (WEXITSTATUS(status) != 0) {
                     // did not exit with status 0
-                    exit_shell(1);
+                    // exit_shell(1);
+                    return 1;
                 }
                 fflush(stdout);
             } else if (WIFSIGNALED(status)) {
@@ -291,16 +297,32 @@ int execute_external(char*cmd) {
 }
 
 
-int execute(char* cmd) {
+int execute(char* cmd, int logic) {
     if ((strstr(cmd, "&&")) != NULL) {
         // and
+        vector_push_back(all_history, cmd);
         return logic_and(cmd);
     } else if ((strstr(cmd, "||")) != NULL) {
         // or
+        vector_push_back(all_history, cmd);
         return logic_or(cmd);
     } else if ((strstr(cmd, ";")) != NULL) {
         // separator
+        vector_push_back(all_history, cmd);
         return logic_separator(cmd);
+    } else if ((strstr(cmd, ">>")) != NULL) {
+        // append
+        redirect = 1;
+        vector_push_back(all_history, cmd);
+        return redirect_append(cmd);
+    } else if ((strstr(cmd, ">")) != NULL) {
+        // output
+        redirect = 1;
+        vector_push_back(all_history, cmd);
+        return redirect_output(cmd);
+    } else if ((strstr(cmd, "<")) != NULL) {
+        vector_push_back(all_history, cmd);
+        return 0;
     }
     
     sstring* s = cstr_to_sstring(cmd);
@@ -315,7 +337,9 @@ int execute(char* cmd) {
             // cd
             if (size > 1) {
                 valid_command = 1;
-                vector_push_back(all_history, cmd);
+                if (!logic) {
+                    vector_push_back(all_history, cmd);
+                }
                 int result = cd(vector_get(splited, 1));
                 sstring_destroy(s);
                 vector_destroy(splited);
@@ -342,7 +366,7 @@ int execute(char* cmd) {
                     print_command(exec_cmd);
                     sstring_destroy(s);
                     vector_destroy(splited);
-                    return execute(exec_cmd);
+                    return execute(exec_cmd, 0);
                 } 
                 print_invalid_index();
                 sstring_destroy(s);
@@ -360,7 +384,7 @@ int execute(char* cmd) {
                         print_command(another_cmd);
                         sstring_destroy(s);
                         vector_destroy(splited);
-                        return execute(another_cmd);
+                        return execute(another_cmd, 0);
                     }
                 }
                 print_no_history_match();
@@ -370,7 +394,9 @@ int execute(char* cmd) {
             }
         } else if (strcmp(first_string, "ps") == 0) {
             // ps
-            vector_push_back(all_history, cmd);
+            if (!logic) {
+                vector_push_back(all_history, cmd);
+            }
             if (size == 1) {
                 valid_command = 1;
                 ps();
@@ -378,7 +404,9 @@ int execute(char* cmd) {
             }
         } else if (strcmp(first_string, "kill") == 0) {
             // kill
-            vector_push_back(all_history, cmd);
+            if (!logic) {
+                vector_push_back(all_history, cmd);
+            }
             if (size == 2) {
                 valid_command = 1;
                 pid_t target = atoi(vector_get(splited, 1));
@@ -397,7 +425,9 @@ int execute(char* cmd) {
             }
         } else if (strcmp(first_string, "stop") == 0) {
             // stop
-            vector_push_back(all_history, cmd);
+            if (!logic) {
+                vector_push_back(all_history, cmd);
+            }
             if (size == 2) {
                 valid_command = 1;
                 pid_t target = atoi(vector_get(splited, 1));
@@ -416,7 +446,9 @@ int execute(char* cmd) {
             }
         } else if (strcmp(first_string, "cont") == 0) {
             // cont
-            vector_push_back(all_history, cmd);
+            if (!logic) {
+                vector_push_back(all_history, cmd);
+            }
             if (size == 2) {
                 valid_command = 1;
                 pid_t target = atoi(vector_get(splited, 1));
@@ -441,7 +473,9 @@ int execute(char* cmd) {
             }
         } else {
             // external;
-            vector_push_back(all_history, cmd);
+            if (!logic) {
+                vector_push_back(all_history, cmd);
+            }
             valid_command = 1;
             sstring_destroy(s);
             vector_destroy(splited);
@@ -474,8 +508,8 @@ int logic_and(char* cmd) {
     second_cmd[second_cmd_len] = '\0';
     // run
     int first_status;
-    if ((first_status = execute(first_cmd)) == 0) {
-        return execute(second_cmd);
+    if ((first_status = execute(first_cmd, 1)) == 0) {
+        return execute(second_cmd, 1);
     }
 
     return 1;
@@ -496,8 +530,8 @@ int logic_or(char* cmd) {
     second_cmd[second_cmd_len] = '\0';
     // run
     int first_status;
-    if ((first_status = execute(first_cmd)) != 0) {
-        return execute(second_cmd);
+    if ((first_status = execute(first_cmd, 1)) != 0) {
+        return execute(second_cmd, 1);
     }
     return 0;
 }
@@ -516,12 +550,64 @@ int logic_separator(char* cmd) {
     first_cmd[first_cmd_len] = '\0';
     second_cmd[second_cmd_len] = '\0';
     
-    int result1 = execute(first_cmd);
-    int result2 = execute(second_cmd);
+    int result1 = execute(first_cmd, 1);
+    int result2 = execute(second_cmd, 1);
 
     return result1 && result2;
 }
 
+// >> opertaor
+int redirect_append(char* cmd) {
+    char* location = strstr(cmd, ">>");
+    size_t total_len = strlen(cmd);
+    size_t first_cmd_len = location - cmd;
+    size_t second_cmd_len = total_len - (first_cmd_len + 3);
+    char first_cmd [first_cmd_len];
+    char second_cmd [second_cmd_len + 1];
+    strncpy(first_cmd, cmd, first_cmd_len);
+    strncpy(second_cmd, (location + 3), second_cmd_len);
+    first_cmd[first_cmd_len - 1] = '\0';
+    second_cmd[second_cmd_len] = '\0';
+    // run
+    FILE* fd = fopen(second_cmd, "a");
+    int fd_num = fileno(fd);
+    int original = dup(fileno(stdout));
+    fflush(stdout);
+    dup2(fd_num, fileno(stdout));
+    execute(first_cmd, 1);
+    fflush(stdout);
+    close(fd_num);
+    dup2(original, fileno(stdout));
+    // 
+    redirect = 0;
+    return 0;
+}
+
+// > operator
+int redirect_output(char* cmd) {
+    char* location = strstr(cmd, ">");
+    size_t total_len = strlen(cmd);
+    size_t first_cmd_len = location - cmd;
+    size_t second_cmd_len = total_len - (first_cmd_len + 2);
+    char first_cmd [first_cmd_len];
+    char second_cmd [second_cmd_len + 1];
+    strncpy(first_cmd, cmd, first_cmd_len);
+    strncpy(second_cmd, (location + 2), second_cmd_len);
+    first_cmd[first_cmd_len - 1] = '\0';
+    second_cmd[second_cmd_len] = '\0';
+    //
+    FILE* fd = fopen(second_cmd, "w");
+    int fd_num = fileno(fd);
+    int original = dup(fileno(stdout));
+    fflush(stdout);
+    dup2(fd_num, fileno(stdout));
+    execute(first_cmd, 1);
+    fflush(stdout);
+    close(fd_num);
+    dup2(original, fileno(stdout));
+    redirect = 0;
+    return 0;
+}
 
 int shell(int argc, char *argv[]) {
     // TODO: This is the entry point for your shell.
@@ -590,7 +676,7 @@ int shell(int argc, char *argv[]) {
             }
             char* copy = malloc(strlen(buffer));
             strcpy(copy, buffer);
-            execute(copy);
+            execute(copy, 0);
         }
 
         if (getcwd(cwd, 256) == NULL) {
