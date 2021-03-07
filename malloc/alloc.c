@@ -7,6 +7,26 @@
 #include <string.h>
 #include <unistd.h>
 
+#define min(a, b) (((a) < (b)) ? (a) : (b))
+
+
+// linked list struct, based on lecture handout
+typedef struct _metadata_entry{
+  void* ptr;
+  size_t size;
+  int free;
+  struct _metadata_entry* next;
+  struct _meta_data_entry *prev;
+} entry_t;
+
+
+/**
+ * linked list start for memory. 
+ * the linked list does not include freed blocks.
+ */ 
+static entry_t* head = NULL;
+
+
 /**
  * Allocate space for array in memory
  *
@@ -32,7 +52,14 @@
  */
 void *calloc(size_t num, size_t size) {
     // implement calloc!
-    return NULL;
+    void* ptr = malloc(num * size);
+    // check if malloc is successful
+    if (ptr == NULL) {
+        return NULL;
+    }
+    // initialize all bits to zero
+    memset(ptr, 0, num*size);
+    return ptr;
 }
 
 /**
@@ -58,7 +85,38 @@ void *calloc(size_t num, size_t size) {
  */
 void *malloc(size_t size) {
     // implement malloc!
-    return NULL;
+
+    // based on code in lecture and handout
+    entry_t* ptr = head;
+    entry_t* chosen = NULL;
+    
+    while(ptr) {
+        if (ptr -> free && ptr -> size >= size) {
+            // use first-fit
+            chosen = ptr;
+            break;
+        }
+        ptr = ptr -> next;
+    }
+
+    if (chosen) {
+        // implement split later
+        chosen -> free = 0;
+        return chosen -> ptr;
+    }
+
+    // call sbrk
+    chosen = sbrk(sizeof(entry_t));
+    chosen -> ptr = sbrk(0);
+    if (sbrk(size) == (void*) -1) {
+        return NULL;
+    }
+    chosen -> size = size;
+    chosen -> free = 0;
+
+    chosen -> next = head;
+    head = chosen;
+    return chosen -> ptr;
 }
 
 /**
@@ -79,6 +137,17 @@ void *malloc(size_t size) {
  */
 void free(void *ptr) {
     // implement free!
+
+    /**
+     * If a null pointer is passed as argument, no action occurs.
+     */
+    if (ptr == NULL) {
+        return;
+    }
+    entry_t* entry = ((entry_t*) ptr) - 1;
+
+    entry -> free = 1;
+
 }
 
 /**
@@ -128,5 +197,39 @@ void free(void *ptr) {
  */
 void *realloc(void *ptr, size_t size) {
     // implement realloc!
-    return NULL;
+
+    /**
+     * In case that ptr is NULL, the function behaves exactly as malloc
+     */ 
+    if (ptr == NULL) {
+        return malloc(size);
+    }
+    /**
+     * In case that the size is 0, the memory previously allocated in ptr is
+     * deallocated as if a call to free was made, and a NULL pointer is returned.
+     */ 
+    if (size == 0) {
+        free(ptr);
+        return NULL;
+    }
+
+    // based on code in lecture 
+
+    // get pointer to metadata entry
+    entry_t* entry = ((entry_t*) ptr) - 1;
+
+    // if original size is large enough
+    if (entry -> size >= size) {
+        return ptr;
+    }
+
+    // allocate new memory and free previous one
+    void* new_ptr = malloc(size);
+    // check if malloc is successful
+    if (new_ptr == NULL) {
+        return NULL;
+    }
+    memcpy(new_ptr, ptr, min(size, entry -> size));
+    free(ptr);
+    return new_ptr;
 }
