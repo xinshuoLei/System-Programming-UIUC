@@ -10,22 +10,21 @@
 #define min(a, b) (((a) < (b)) ? (a) : (b))
 
 
-// linked list struct, based on lecture handout
+// double linked list struct, based on lecture handout
 typedef struct _metadata_entry{
   void* ptr;
   size_t size;
   int free;
   struct _metadata_entry* next;
-  struct _meta_data_entry *prev;
+  struct _metadata_entry* prev;
 } entry_t;
 
 
 /**
- * linked list start for memory. 
- * the linked list does not include freed blocks.
+ * linked list start of FREE memory
  */ 
 static entry_t* head = NULL;
-
+static int first = 1;
 
 /**
  * Allocate space for array in memory
@@ -101,7 +100,26 @@ void *malloc(size_t size) {
 
     if (chosen) {
         // implement split later
+
         chosen -> free = 0;
+
+        
+        // remove from FREE memory list
+        entry_t* chosen_prev = chosen -> prev;
+        entry_t* chosen_next = chosen -> next;
+        if(chosen_prev && chosen_next) {
+			chosen_prev -> next = chosen_next;
+			chosen_next -> prev = chosen_prev;
+		} else if(chosen_next) {
+			chosen_next -> prev = NULL;
+			head = chosen-> next;
+		} else if(chosen_prev) {
+			chosen_prev -> next = NULL;
+		} else {
+            // chosen is not linked to anything
+            head = NULL;
+        }
+        
         return chosen -> ptr;
     }
 
@@ -111,11 +129,23 @@ void *malloc(size_t size) {
     if (sbrk(size) == (void*) -1) {
         return NULL;
     }
+
+    
     chosen -> size = size;
     chosen -> free = 0;
 
-    chosen -> next = head;
-    head = chosen;
+    entry_t* original_head = head;
+    
+    if (first) {
+        if (original_head) {
+            original_head -> prev = chosen;
+        }
+        chosen -> next = original_head;
+        chosen -> prev = NULL;
+        head = chosen;
+        first = 0;
+    }
+
     return chosen -> ptr;
 }
 
@@ -148,6 +178,16 @@ void free(void *ptr) {
 
     entry -> free = 1;
 
+    
+    // put block back in linked list
+    entry_t* original_head = head;
+    if (original_head) {
+        original_head -> prev = entry;
+    }
+    entry -> next = original_head;
+    entry -> prev = NULL;
+    head = entry;
+    
 }
 
 /**
