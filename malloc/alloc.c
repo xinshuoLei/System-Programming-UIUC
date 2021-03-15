@@ -24,7 +24,49 @@ typedef struct _metadata_entry{
  * linked list start of FREE memory
  */ 
 static entry_t* head = NULL;
-static int first = 1;
+static size_t free_memory_size = 0;
+
+
+void merge_with_prev(entry_t* entry){
+    entry_t* prev_entry = entry -> prev;
+    // skip prev entry
+    entry->size += prev_entry ->size + sizeof(entry_t);
+    if (prev_entry -> prev) {
+        prev_entry -> prev -> next = entry;
+        entry->prev = prev_entry->prev;
+    } else {
+        entry -> prev = NULL;
+        head = entry;
+    }
+}
+
+void split(entry_t* entry, size_t size){
+    // get the ptr for the extra space
+    entry_t* extra_space = (void*) entry->ptr + size;
+    extra_space->ptr = extra_space + 1;
+    // calculate size, extra space will be free memory
+    extra_space->size = entry->size - size - sizeof(entry_t);
+    extra_space->free = 1;
+    free_memory_size += extra_space->size;
+
+    // deal with the memory for the exact size
+    entry->size = size;
+
+    extra_space->next = entry;
+    extra_space->prev = entry->prev;
+    if(entry->prev){
+        entry->prev->next = extra_space;
+    }else{
+        head = extra_space;
+    }
+    entry->prev = extra_space;
+    // check for possible merge
+    if(extra_space->prev && extra_space->prev->free) {
+        merge_with_prev(extra_space);
+    }
+}
+
+
 
 /**
  * Allocate space for array in memory
@@ -89,38 +131,25 @@ void *malloc(size_t size) {
     entry_t* ptr = head;
     entry_t* chosen = NULL;
     
-    while(ptr) {
-        if (ptr -> free && ptr -> size >= size) {
-            // use first-fit
-            chosen = ptr;
-            break;
+    if (free_memory_size >= size) {
+        while(ptr) {
+            if (ptr -> free && ptr -> size >= size) {
+                // use first-fit
+                free_memory_size -= size;
+                chosen = ptr;
+                break;
+            }
+            ptr = ptr -> next;
         }
-        ptr = ptr -> next;
-    }
 
-    if (chosen) {
-        // implement split later
-
-        chosen -> free = 0;
-
-        
-        // remove from FREE memory list
-        entry_t* chosen_prev = chosen -> prev;
-        entry_t* chosen_next = chosen -> next;
-        if(chosen_prev && chosen_next) {
-			chosen_prev -> next = chosen_next;
-			chosen_next -> prev = chosen_prev;
-		} else if(chosen_next) {
-			chosen_next -> prev = NULL;
-			head = chosen-> next;
-		} else if(chosen_prev) {
-			chosen_prev -> next = NULL;
-		} else {
-            // chosen is not linked to anything
-            head = NULL;
+        if (chosen) {
+            // implement split later
+            if((chosen->size - size >= size) && (chosen->size - size >= sizeof(entry_t))) { 
+                split(chosen,size);
+            }
+            chosen -> free = 0;
+            return chosen -> ptr;
         }
-        
-        return chosen -> ptr;
     }
 
     // call sbrk
@@ -136,15 +165,12 @@ void *malloc(size_t size) {
 
     entry_t* original_head = head;
     
-    if (first) {
-        if (original_head) {
-            original_head -> prev = chosen;
-        }
-        chosen -> next = original_head;
-        chosen -> prev = NULL;
-        head = chosen;
-        first = 0;
+    if (original_head) {
+        original_head -> prev = chosen;
     }
+    chosen -> next = original_head;
+    chosen -> prev = NULL;
+    head = chosen;
 
     return chosen -> ptr;
 }
@@ -177,17 +203,14 @@ void free(void *ptr) {
     entry_t* entry = ((entry_t*) ptr) - 1;
 
     entry -> free = 1;
-
+    free_memory_size += (entry -> size + sizeof(entry_t));
     
-    // put block back in linked list
-    entry_t* original_head = head;
-    if (original_head) {
-        original_head -> prev = entry;
+    if(entry->prev && entry->prev->free == 1) {
+        merge_with_prev(entry);
     }
-    entry -> next = original_head;
-    entry -> prev = NULL;
-    head = entry;
-    
+    if(entry->next && entry->next->free == 1) {
+        merge_with_prev(entry->next);
+    }
 }
 
 /**
@@ -260,6 +283,11 @@ void *realloc(void *ptr, size_t size) {
 
     // if original size is large enough
     if (entry -> size >= size) {
+        // split if there is extra space
+        if(entry->size - size >= sizeof(entry_t)){
+            split(entry,size);
+            return entry->ptr;
+        }
         return ptr;
     }
 
