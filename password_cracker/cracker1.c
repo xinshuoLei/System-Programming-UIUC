@@ -27,16 +27,18 @@ void* crack_password(void* thread_num) {
     char username[10];
     char hash[16];
     char known[16];
+    struct crypt_data cdata;
+    cdata.initialized = 0;
     char* task = NULL;
-    while (num_tasks != 0) {
+    while (true) {
         task = queue_pull(tasks);
-        num_tasks--;
+        if (!task) {
+            break;
+        }
         // get corresponding parts
         sscanf(task, "%s %s %s", username, hash, known);
         // print starting info
         v1_print_thread_start(index, username);
-        struct crypt_data cdata;
-        cdata.initialized = 0;
         int prefix_length = getPrefixLength(known);
         // set to first unknown
         setStringPosition(prefix_length + known, 0);
@@ -52,8 +54,8 @@ void* crack_password(void* thread_num) {
             if (strcmp(current_hash, hash) == 0) {
                 pthread_mutex_lock(&lock);
                 recovered_num++;
-                fail = 0;
                 pthread_mutex_unlock(&lock);
+                fail = 0;
                 break;
             }
             // increment fail. cannot recover
@@ -91,8 +93,13 @@ int start(size_t thread_count) {
         num_tasks++;
     }
 
-    // create threads
     size_t i = 0;
+    for(; i < thread_count; i++) {
+        queue_push(tasks, NULL);
+    }
+
+    // create threads
+    i = 0;
     for(; i < thread_count; i++) {
         pthread_create(tids + i, NULL, crack_password, (void*) i + 1 /* index of thread is 1-indexed */);
     }
