@@ -71,14 +71,15 @@ void* crack_password(void* input) {
                 break;
             }
             // other thread found solution, stop working
+            pthread_mutex_lock(&lock);
             if (found_password) {
-                pthread_mutex_lock(&lock);
                 v2_print_thread_result(index, count, 1);
                 hash_count += count;
                 pthread_mutex_unlock(&lock);
                 printed = 1;
                 break;
             }
+            pthread_mutex_unlock(&lock);
             incrementString(known_copy + prefix_length);
         } 
         
