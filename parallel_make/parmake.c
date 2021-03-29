@@ -18,6 +18,8 @@
 #include <stdio.h>
 
 // state = -1 means fails
+// state = -3 means cycle detection
+// state = 10 means satisfied
 
 
 
@@ -96,12 +98,13 @@ int check_status(void* rule_vertex) {
                     break;
 	            }
             }
-            vector_destroy(commands);
             if (failed) {
+                vector_destroy(dependencies);
                 return -1;
             }
             // set the state of current rule to satisfied
             curr_rule -> state = 10;
+            vector_destroy(dependencies);
             return 1;
         }
     } else {
@@ -131,8 +134,8 @@ int check_status(void* rule_vertex) {
                                 break;
                             }
                         }
-                        vector_destroy(commands);
                         if (failed) {
+                            vector_destroy(dependencies);
                             return -1;
                         }
                         vector_destroy(dependencies);
@@ -175,10 +178,10 @@ int check_status(void* rule_vertex) {
                     break;
                 }
             }
-            vector_destroy(commands);
             if (failed) {
                 // set the state of current rule to failed
                 curr_rule -> state = -1;
+                vector_destroy(dependencies);
                 return -1;
             }
             vector_destroy(dependencies);
@@ -203,30 +206,38 @@ int parmake(char *makefile, size_t num_threads, char **targets) {
 
     // check each goal, see if there is a cycle
     size_t i = 0;
+    size_t no_cycle = num_goals;
     for (; i < num_goals; i++) {
         void* curr_goal = vector_get(goals, i);
         if (cycle_detection(curr_goal)) {
             // cycle detected, goal fails
             print_cycle_failure((char*) curr_goal);
-            vector_erase(goals, i);
             rule_t* curr_rule = (rule_t*) graph_get_vertex_value(g, curr_goal);
-            curr_rule -> state = -1;
+            curr_rule -> state = -3;
+            no_cycle--;
         }
     }
 
     // all goals have cycle, finish execution
-    if (vector_empty(goals)) {
+    if (no_cycle == 0) {
+        graph_destroy(g);
+        vector_destroy(goals);
         return 0;
     }
 
     i = 0;
     for (; i < num_goals; i++) {
         void* curr_goal = vector_get(goals, i);
-        check_status(curr_goal);
+        rule_t* curr_rule = (rule_t*) graph_get_vertex_value(g, curr_goal);
+        if (curr_rule -> state != -3) {
+            check_status(curr_goal);
+        }
         // rule satisfies, run command
     }
     
+    
     vector_destroy(goals);
+    graph_destroy(g);
 
     return 0;
 }
