@@ -92,13 +92,13 @@ int cycle_detection(void* goal) {
 void* run_rule(void* place_holder /** to satisfiy the requirement of pthread */) {
     while (1) {
         void* rule_vertex = queue_pull(rules);
-        rule_t* rule = (rule_t*) graph_get_vertex_value(g, rule_vertex);
         // flag for whether to run the command
-        int should_run = 0;
         // stop if queue is empty
         if (rule_vertex == NULL) {
             break;
         }
+        rule_t* rule = (rule_t*) graph_get_vertex_value(g, rule_vertex);
+        int should_run = 0;
         struct stat stat_rule;
         // successfully read file's stat
 	    if (stat(rule -> target, &stat_rule) != -1) {
@@ -132,7 +132,6 @@ void* run_rule(void* place_holder /** to satisfiy the requirement of pthread */)
                 // execution failed
                 if (system((char *)vector_get(commands, j)) != 0) {
                     // set the state of current rule to failed
-                    rule -> state = -1;
                     failed = 1;
                     break;
 	            }
@@ -153,7 +152,7 @@ void* run_rule(void* place_holder /** to satisfiy the requirement of pthread */)
                 }
             }
             // if current one is root
-            if (strcmp(curr, "")) {
+            if (strcmp(curr, "") == 0) {
                 finished_thread++;
                 pthread_cond_signal(&cv);
             }
@@ -285,7 +284,6 @@ int check_status(void* rule_vertex) {
 void add_to_queue_helper(dictionary* in_queue, vector* rules_vec) {
     size_t i = 0;
     // iterate through all goals, push goal and its dependencies to queue
-    // if rules_vec is empty, will not enter loop
     for (; i < vector_size(rules_vec); i++) {
         void* goal = vector_get(rules_vec, i);
         // get all its dependencies
@@ -293,14 +291,18 @@ void add_to_queue_helper(dictionary* in_queue, vector* rules_vec) {
         // set state
         rule_t* goal_ptr = (rule_t*)graph_get_vertex_value(g, goal);
         goal_ptr -> state = vector_size(dependencies);
-        // recursion step
-        add_to_queue_helper(in_queue, dependencies);
-        // is not in queue
-        if (*((int*)dictionary_get(in_queue, goal)) == 0) {
-            // push into queue and set in queue to 1
-            queue_push(rules, goal);
-            int one = 1;
-            dictionary_set(in_queue, goal, &one);
+        // only add rules without any dependencies (i.e. can be excuted immediately)
+        if (vector_size(dependencies) == 0) {
+            // currently not in queue
+            if ((*(int*)dictionary_get(in_queue, goal)) == 0) {
+                // push into queue and set in queue to 1
+                queue_push(rules, goal);
+                int one = 1;
+                dictionary_set(in_queue, goal, &one);
+            }
+        } else {
+            // recursion step
+            add_to_queue_helper(in_queue, dependencies);
         }
         vector_destroy(dependencies);
     }
@@ -351,7 +353,7 @@ int parmake(char *makefile, size_t num_threads, char **targets) {
             no_cycle--;
         }
     }
-
+    
     ssize_t k = num_goals - 1;
     for (; k >= 0; k--) {
         void* curr_goal = vector_get(goals, k);
@@ -370,7 +372,7 @@ int parmake(char *makefile, size_t num_threads, char **targets) {
 
     // add rules to queue
     add_to_queue(goals);
-    
+
     // create threads
     i = 0;
     for (; i < num_threads; i++) {
@@ -388,7 +390,6 @@ int parmake(char *makefile, size_t num_threads, char **targets) {
         }
     }
     */
-    
     
     pthread_mutex_lock(&lock);
     // wait till all threads finish
