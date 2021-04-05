@@ -89,6 +89,22 @@ int cycle_detection(void* goal) {
     return cycle_exist;
 }
 
+void failure_resolve(void* rule_vertex) {
+    vector* parents = graph_antineighbors(g, rule_vertex);
+    size_t j = 0;
+    for (; j < vector_size(parents); j++) {
+        void* curr = vector_get(parents, j);
+        if (strcmp(curr, "") == 0) {
+            finished_thread++;
+            pthread_cond_signal(&cv);
+        } else {
+            failure_resolve(curr);
+        }
+    }
+    vector_destroy(parents);
+}
+
+
 void* run_rule(void* place_holder /** to satisfiy the requirement of pthread */) {
     while (1) {
         void* rule_vertex = queue_pull(rules);
@@ -137,25 +153,30 @@ void* run_rule(void* place_holder /** to satisfiy the requirement of pthread */)
 	            }
             }
         }
+        if (failed) {
+            pthread_mutex_lock(&lock);
+            failure_resolve(rule_vertex);
+            pthread_mutex_unlock(&lock);
+        }
         pthread_mutex_lock(&lock);
         vector* parents = graph_antineighbors(g, rule_vertex);
         size_t k = 0;
         for (; k < vector_size(parents); k++) {
             void* curr = vector_get(parents, k);
+            rule_t* curr_ptr = graph_get_vertex_value(g, curr);
             if (!failed) {
-                rule_t* curr_ptr = graph_get_vertex_value(g, curr);
                 // decrease num of unsatisfied dependencies
                 curr_ptr -> state -= 1;
                 // all dependecies satisified
                 if (curr_ptr -> state == 0) {
                     queue_push(rules, curr);
                 }
-            }
-            // if current one is root
-            if (strcmp(curr, "") == 0) {
-                finished_thread++;
-                pthread_cond_signal(&cv);
-            }
+                // if current one is root
+                if (strcmp(curr, "") == 0) {
+                    finished_thread++;
+                    pthread_cond_signal(&cv);
+                }
+            } 
         }
         pthread_mutex_unlock(&lock);
         vector_destroy(parents);
@@ -353,7 +374,6 @@ int parmake(char *makefile, size_t num_threads, char **targets) {
             no_cycle--;
         }
     }
-    
     ssize_t k = num_goals - 1;
     for (; k >= 0; k--) {
         void* curr_goal = vector_get(goals, k);
