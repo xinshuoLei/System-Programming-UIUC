@@ -145,7 +145,7 @@ void run_server(char *port) {
             if (clients[i] == -1) {
                 clients[i] = fd_addr;
                 clientsCount ++;
-                pthread_create(threads+i, NULL, process_client, (void*)i);
+                pthread_create(threads+i, NULL, process_client, (void*)(intptr_t)i);
                 break;
             }
         }
