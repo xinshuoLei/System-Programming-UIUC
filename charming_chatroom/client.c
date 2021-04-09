@@ -1,6 +1,8 @@
 /**
  * charming_chatroom
  * CS 241 - Spring 2021
+  partner: haoyul4, xinshuo3
+
  */
 
 #include <errno.h>
@@ -30,6 +32,12 @@ void close_program(int signal);
  */
 void close_server_connection() {
     // Your code here
+    if (shutdown(serverSocket, SHUT_RDWR) != 0) {
+        perror("no more sending or recieving msg");
+    }
+    if (close(serverSocket) != 0) {
+        perror("close file");
+    }
 }
 
 /**
@@ -43,6 +51,26 @@ void close_server_connection() {
  */
 int connect_to_server(const char *host, const char *port) {
     /*QUESTION 1*/
+    int go = socket(AF_INET, SOCK_STREAM, 0);
+    if (go == -1) {
+        perror("failed");
+        exit(1);
+    }
+    struct addrinfo info;
+    memset(&info, 0, sizeof(struct addrinfo));
+    info.ai_family = AF_INET;
+    info.ai_socktype = SOCK_STREAM;
+    struct addrinfo *read;
+    int toAdd = getaddrinfo(host, port, &info, &read);
+    if (toAdd != 0){  //not succeed
+        fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(toAdd));
+        exit(1);
+    }
+    if (connect(go, read->ai_addr, read->ai_addrlen) == -1) {
+        exit(1);
+    }
+    freeaddrinfo(read);
+
     /*QUESTION 2*/
     /*QUESTION 3*/
 
@@ -52,7 +80,7 @@ int connect_to_server(const char *host, const char *port) {
     /*QUESTION 6*/
 
     /*QUESTION 7*/
-    return -1;
+    return go;
 }
 
 typedef struct _thread_cancel_args {
