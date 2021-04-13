@@ -97,7 +97,6 @@ inode *minixfs_create_inode_for_path(file_system *fs, const char *path) {
     inode* node = get_inode(fs, path);
     // already exists
     if (node != NULL) {
-        puts("1");
         return NULL;
     }
    
@@ -105,17 +104,14 @@ inode *minixfs_create_inode_for_path(file_system *fs, const char *path) {
     inode* parent = parent_directory(fs, path, &filename);
      // invalid path
     if (!valid_filename(filename)) {
-        puts("2");
         return NULL;
     }
     if (parent == NULL || !is_directory(parent)) {
-        puts("3");
         return NULL;
     }
     inode_number new_index = first_unused_inode(fs);
     // no more inodes
     if (new_index == -1) {
-        puts("4");
         return NULL;
     }
     inode* new_node = fs -> inode_root + new_index;
@@ -127,13 +123,11 @@ inode *minixfs_create_inode_for_path(file_system *fs, const char *path) {
     d.name = (char*) filename;
     // should use indirect but I'm tired
     if ((parent -> size / sizeof(data_block)) >= NUM_DIRECT_BLOCKS) {
-        puts("5");
         return NULL;
     }
     int offset = parent -> size % sizeof(data_block);
     // cannot create because number of data blocks already full
     if (!offset && (add_data_block_to_inode(fs, parent) == -1)) {
-        puts("6");
         return NULL;
     }
     void* start = get_block(fs, parent, (parent -> size / sizeof(data_block))) + offset;
