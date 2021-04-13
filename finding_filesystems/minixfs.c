@@ -249,6 +249,7 @@ ssize_t minixfs_read(file_system *fs, const char *path, void *buf, size_t count,
     size_t block_index = *off / sizeof(data_block);
     size_t block_offset = *off % sizeof(data_block);
     // read size
+    count = MIN(count, node -> size - *off);
     uint64_t size = MIN(count, (sizeof(data_block) - block_offset));
     void* block = get_block(fs, node, block_index) + block_offset;
     memcpy(buf, block, size);
