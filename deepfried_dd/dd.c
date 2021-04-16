@@ -70,7 +70,6 @@ int main(int argc, char **argv) {
         }
     }
     fseek(fp_in, num_block_skip_in, SEEK_SET);
-    fseek(fp_in, num_block_skip_in, SEEK_SET);
     fseek(fp_out, num_block_skip_out, SEEK_SET);
     clock_t before = clock();
     size_t full_blocks_in = 0;
@@ -91,6 +90,7 @@ int main(int argc, char **argv) {
             print_status_report(full_blocks_in, partial_blocks_in,
                         full_blocks_in, partial_blocks_in,
                         copy_size, time_elapsed_);
+            print_stat = 0;
         }
         char buffer[block_size];
         size_t num_read = fread((void*) buffer, 1, block_size, fp_in);
