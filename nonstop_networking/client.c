@@ -88,8 +88,8 @@ void read_response(char **args, int socket_result, verb method) {
             size_t num_error_read = read_all_from_socket(socket_result, error_message, 100);
             if (num_error_read == 0) {
                 print_connection_closed();
-                print_error_message(error_message);
             }
+            print_error_message(error_message);
         } else {
             print_invalid_response();
         }
