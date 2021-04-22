@@ -1,5 +1,5 @@
 /**
- * partner: haoyul4, xinshuo3
+ * partner: haoyul4, peiyuan3
  * mad_mad_access_patterns
  * CS 241 - Spring 2021
  */
