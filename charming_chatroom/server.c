@@ -104,7 +104,6 @@ void run_server(char *port) {
         perror("not workin");
         exit(1);
     }
-
     struct addrinfo *r;
     int temp = getaddrinfo(NULL, port, &info, &r);
     if(temp){
@@ -113,6 +112,10 @@ void run_server(char *port) {
     }
     int o = 1;
     if (setsockopt(serverSocket, SOL_SOCKET, SO_REUSEPORT, &o, sizeof(o)) == -1) {
+        perror("setsockopt failed");
+        exit(1);
+    }
+    if (setsockopt(serverSocket, SOL_SOCKET, SO_REUSEADDR, &o, sizeof(o)) == -1) {
         perror("setsockopt failed");
         exit(1);
     }
