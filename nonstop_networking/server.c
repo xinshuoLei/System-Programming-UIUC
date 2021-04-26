@@ -138,7 +138,8 @@ int main(int argc, char **argv) {
     }
 
     // make temporart directory for uploaded files
-    dir = mkdtemp("XXXXXX");
+    char dirname[] = "XXXXXX";
+    dir = mkdtemp(dirname);
     if (dir == NULL) {
         exit(1);
     }
