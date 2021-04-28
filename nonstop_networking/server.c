@@ -112,12 +112,12 @@ int process_put(int client_fd) {
     read_all_from_socket(client_fd, (char*) &file_size_, sizeof(size_t));
     size_t read_count = 0;
     // read and write with buffer size of 1024
-    while (read_count < file_size_) {
+    while (read_count < file_size_ + 1024) {
         size_t buffer_size = 0;
-        if (file_size_ - read_count > 1024) {
+        if (file_size_ + 1024 - read_count > 1024) {
             buffer_size = 1024;
         } else {
-            buffer_size = file_size_ - read_count;
+            buffer_size = file_size_ + 1024 - read_count;
         }
         char buffer[buffer_size];
         ssize_t num_read = read_all_from_socket(client_fd, buffer, buffer_size);

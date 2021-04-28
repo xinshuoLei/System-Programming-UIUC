@@ -42,18 +42,13 @@ void read_response(char **args, int socket_result, verb method) {
             size_t size;
             read_all_from_socket(socket_result, (char*) &size, sizeof(size_t));
             // write to local file
-            /**
-            char buffer[size + 1024];
-            size_t read_count = read_all_from_socket(socket_result, buffer, size + 1024);
-            fwrite(buffer, 1, read_count, local_file);
-            */
             size_t get_count = 0;
-            while (get_count < size) {
+            while (get_count < size + 1024) {
                 size_t buffer_size = 0;
-                if (size - get_count > 1024) {
+                if (size + 1024 - get_count > 1024) {
                     buffer_size = 1024;
                 } else {
-                    buffer_size = size - get_count;
+                    buffer_size = size + 1024 - get_count;
                 }
                 char buffer[buffer_size];
                 size_t num_read = read_all_from_socket(socket_result, buffer, buffer_size);
