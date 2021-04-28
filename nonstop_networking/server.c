@@ -210,7 +210,9 @@ void process_list(int client_fd) {
 	write_all_to_socket(client_fd, ok, strlen(ok));
     // no files
     if (vector_size(files) == 0) {
-        return;
+        size_t responese_size = 0;
+        write_all_to_socket(client_fd, (char*) &responese_size, sizeof(size_t));
+        close_client(client_fd);
     }
     size_t responese_size = 0;
     size_t i = 0;
@@ -240,6 +242,7 @@ void parse_header(int client_fd) {
     client_info* info = dictionary_get(fd_to_connection_state, &client_fd);
     // read from client_fd
     size_t read_count = 0;
+    int bad_request = 0;
     while (read_count < 1024) {
         if (info -> header[strlen(info -> header) - 1] == '\n') {
             break;
@@ -264,8 +267,8 @@ void parse_header(int client_fd) {
         if (process_put(client_fd) == 1) {
             // bad file size
             info -> state = -2;
-            info -> state = -1;
             struct epoll_event ev_client;
+            memset(&ev_client, '\0', sizeof(struct epoll_event));
             ev_client.events = EPOLLOUT;
             ev_client.data.fd = client_fd;
             // change to read
@@ -283,22 +286,37 @@ void parse_header(int client_fd) {
 		strcpy(info->filename, info->header + strlen("DELETE") + 1);
 		info->filename[strlen(info->filename) - 1] = '\0';
 	} else if (!strncmp(info->header, "LIST", 4)) {
+        if (read_count != 5) {
+            bad_request = 1;
+        }
         // process LIST
 		info -> command = LIST;
 	} else {
-		print_invalid_response();
+		// print_invalid_response();
         // error in processing header
 		info -> state = -1;
 		struct epoll_event ev_client;
+        memset(&ev_client, '\0', sizeof(struct epoll_event));
         ev_client.events = EPOLLOUT;
         ev_client.data.fd = client_fd;
         // change to read
         epoll_ctl(epoll_fd, EPOLL_CTL_MOD, client_fd, &ev_client);
         return;
 	}
+    if (bad_request == 1) {
+        info -> state = -1;
+		struct epoll_event ev_client;
+        memset(&ev_client, '\0', sizeof(struct epoll_event));
+        ev_client.events = EPOLLOUT;
+        ev_client.data.fd = client_fd;
+        // change to read
+        epoll_ctl(epoll_fd, EPOLL_CTL_MOD, client_fd, &ev_client);
+        return;
+    }
     // ready to execute command
 	info -> state = 1;
 	struct epoll_event ev_client;
+    memset(&ev_client, '\0', sizeof(struct epoll_event));
     ev_client.events = EPOLLOUT;
     ev_client.data.fd = client_fd;
     // change to read
@@ -388,6 +406,7 @@ void run_server(char* port) {
         exit(1);
     }
     struct epoll_event ev;
+    memset(&ev, '\0', sizeof(struct epoll_event));
     ev.events = EPOLLIN;
     ev.data.fd = sock_fd;
     // Add the socket in level_triggered mode
@@ -414,6 +433,7 @@ void run_server(char* port) {
                     exit(1);
                 }
                 struct epoll_event ev_conn;
+                memset(&ev_conn, '\0', sizeof(struct epoll_event));
                 ev_conn.events = EPOLLIN;
                 ev_conn.data.fd = conn_sock;
                 epoll_ctl(epoll_fd, EPOLL_CTL_ADD, conn_sock, &ev_conn);
