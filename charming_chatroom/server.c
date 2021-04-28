@@ -41,18 +41,18 @@ void close_server() {
     for (; i < MAX_CLIENTS; i++){
         if (clients[i] != -1){
             if (shutdown(clients[i], SHUT_RDWR) != 0){ 
-                perror("no more data");
+                perror("client shutdown()");
             }
         if (close(clients[i]) != 0)  {
-            perror("close file");
+            perror("client close()");
         }
       }
     }
     if( shutdown(serverSocket, SHUT_RDWR) != 0) {
-        perror("no more data");
+        perror("server shutdown()");
     }
     if (close(serverSocket) != 0) {
-        perror("close");
+        perror("server close()");
     }
 }
 
@@ -94,36 +94,46 @@ void cleanup() {
  *    - perror() for any other call
  */
 void run_server(char *port) {
-    struct addrinfo info;
-    memset(&info, 0, sizeof(struct addrinfo));
-    info.ai_family = AF_INET;
-    info.ai_socktype = SOCK_STREAM;
-    info.ai_flags = AI_PASSIVE;
+    // code from coursebook
+    struct addrinfo hints, *result;
+    memset(&hints, 0, sizeof(struct addrinfo));
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_flags = AI_PASSIVE;
+
+    int s = getaddrinfo(NULL, port, &hints, &result);
+    if (s != 0) {
+        freeaddrinfo(result);
+        fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(s));
+        exit(1);
+    }
+
     serverSocket = socket(AF_INET, SOCK_STREAM, 0);
     if (serverSocket == -1) {
-        perror("not workin");
+        freeaddrinfo(result);
+        perror("socket");
         exit(1);
     }
-    struct addrinfo *r;
-    int temp = getaddrinfo(NULL, port, &info, &r);
-    if(temp){
-        fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(temp));
-        exit(1);
-    }
+
     int o = 1;
     if (setsockopt(serverSocket, SOL_SOCKET, SO_REUSEPORT, &o, sizeof(o)) == -1) {
+        freeaddrinfo(result);
         perror("setsockopt failed");
         exit(1);
     }
     if (setsockopt(serverSocket, SOL_SOCKET, SO_REUSEADDR, &o, sizeof(o)) == -1) {
+        freeaddrinfo(result);
         perror("setsockopt failed");
         exit(1);
     }
-    if (bind(serverSocket, r->ai_addr, r->ai_addrlen)) {
+
+    if (bind(serverSocket, result->ai_addr, result->ai_addrlen) != 0) {
+        freeaddrinfo(result);
         perror("bind failed");
         exit(1);
     }
-    if (listen(serverSocket, MAX_CLIENTS)) {
+    if (listen(serverSocket, MAX_CLIENTS) != 0) {
+        freeaddrinfo(result);
         perror("listen failed");
         exit(1);
     }
@@ -131,43 +141,28 @@ void run_server(char *port) {
     for(; i < MAX_CLIENTS; i++){
         clients[i] = -1;
     }
-    pthread_t threads[MAX_CLIENTS];
+    pthread_t pids[MAX_CLIENTS];
     while( !endSession ) {
-        pthread_mutex_lock(&mutex);
-        if (clientsCount > MAX_CLIENTS) {
-            pthread_mutex_unlock(&mutex);
+        if (clientsCount >= MAX_CLIENTS) {
             continue;
         }
-        int fd_addr = accept(serverSocket, NULL, NULL);
-        if (fd_addr == -1) {
+        int client_fd = accept(serverSocket, NULL, NULL);
+        if (client_fd == -1) {
             perror("accept failed");
             exit(1);
         }
         i = 0;
         for (; i < MAX_CLIENTS; i++) {
             if (clients[i] == -1) {
-                clients[i] = fd_addr;
+                clients[i] = client_fd;
                 clientsCount ++;
-                pthread_create(threads+i, NULL, process_client, (void*)(intptr_t)i);
+                // create a thread for connected client
+                pthread_create(pids+i, NULL, process_client, (void*)(intptr_t)i);
                 break;
             }
         }
     }
-    freeaddrinfo(r);
-
-    /*QUESTION 1*/
-    /*QUESTION 2*/
-    /*QUESTION 3*/
-
-    /*QUESTION 8*/
-
-    /*QUESTION 4*/
-    /*QUESTION 5*/
-    /*QUESTION 6*/
-
-    /*QUESTION 9*/
-
-    /*QUESTION 10*/
+    freeaddrinfo(result);
 }
 
 /**

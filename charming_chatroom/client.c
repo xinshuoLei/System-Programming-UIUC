@@ -32,11 +32,11 @@ void close_program(int signal);
  */
 void close_server_connection() {
     // Your code here
-    if (shutdown(serverSocket, SHUT_RDWR) != 0) {
+    if (shutdown(serverSocket, SHUT_RD) != 0) {
         perror("no more sending or recieving msg");
     }
     if (close(serverSocket) != 0) {
-        perror("close file");
+        perror("close()");
     }
 }
 
@@ -50,37 +50,28 @@ void close_server_connection() {
  * Returns integer of valid file descriptor, or exit(1) on failure.
  */
 int connect_to_server(const char *host, const char *port) {
-    /*QUESTION 1*/
-    int go = socket(AF_INET, SOCK_STREAM, 0);
-    if (go == -1) {
+    int socket_fd = socket(AF_INET, SOCK_STREAM, 0);
+    if (socket_fd == -1) {
         perror("failed");
         exit(1);
     }
-    struct addrinfo info;
-    memset(&info, 0, sizeof(struct addrinfo));
-    info.ai_family = AF_INET;
-    info.ai_socktype = SOCK_STREAM;
-    struct addrinfo *read;
-    int toAdd = getaddrinfo(host, port, &info, &read);
-    if (toAdd != 0){  //not succeed
-        fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(toAdd));
+    // using code from coursebook
+    struct addrinfo hints, *result;
+    memset(&hints, 0, sizeof(struct addrinfo));
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
+    int s = getaddrinfo(host, port, &hints, &result);
+    if (s != 0) {
+        fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(s));
+        freeaddrinfo(result);
         exit(1);
     }
-    if (connect(go, read->ai_addr, read->ai_addrlen) == -1) {
+    if (connect(socket_fd, result->ai_addr, result->ai_addrlen) == -1) {
+        perror("connect");
         exit(1);
     }
-    freeaddrinfo(read);
-
-    /*QUESTION 2*/
-    /*QUESTION 3*/
-
-    /*QUESTION 4*/
-    /*QUESTION 5*/
-
-    /*QUESTION 6*/
-
-    /*QUESTION 7*/
-    return go;
+    freeaddrinfo(result);
+    return socket_fd;
 }
 
 typedef struct _thread_cancel_args {
