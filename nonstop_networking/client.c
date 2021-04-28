@@ -42,17 +42,35 @@ void read_response(char **args, int socket_result, verb method) {
             size_t size;
             read_all_from_socket(socket_result, (char*) &size, sizeof(size_t));
             // write to local file
+            /**
             char buffer[size + 1024];
             size_t read_count = read_all_from_socket(socket_result, buffer, size + 1024);
             fwrite(buffer, 1, read_count, local_file);
+            */
+            size_t get_count = 0;
+            while (get_count < size) {
+                size_t buffer_size = 0;
+                if (size - get_count > 1024) {
+                    buffer_size = 1024;
+                } else {
+                    buffer_size = size - get_count;
+                }
+                char buffer[buffer_size];
+                size_t num_read = read_all_from_socket(socket_result, buffer, buffer_size);
+                if (num_read == 0) {
+                    break;
+                }
+                fwrite(buffer, 1, num_read, local_file);
+                get_count += num_read;
+            }
             // check for possible error
-            if (read_count == 0 && read_count != size) {
+            if (get_count == 0 && get_count != size) {
                 print_connection_closed();
                 exit(-1);
-            } else if (read_count < size) {
+            } else if (get_count < size) {
                 print_too_little_data();
                 exit(-1);
-            } else if (read_count > size) {
+            } else if (get_count > size) {
                 print_received_too_much_data();
                 exit(-1);
             }
