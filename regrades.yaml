@@ -6,7 +6,7 @@
 
 ---
 assignments:
-  charming_chatroom: false
+  charming_chatroom: true
   critical_concurrency: false
   deadlock_demolition: false
   extreme_edge_cases: false
@@ -25,7 +25,7 @@ assignments:
   deepfried_dd: false
   savvy_scheduler: false
   shell:
-    pt1: false
+    pt1: true
     pt2: false
   teaching_threads: false
   utilities_unleashed: false
